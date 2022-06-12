@@ -1,0 +1,20 @@
+{
+  "name": "@hexlet/code",
+  "description": "hexlet js-algorithms-project-lvl1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Anastasia Burnysheva",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "test": "jest",
+    "lint": "npx eslint .",
+    "lint-fix": "npx eslint . --fix"
+  },
+  "devDependencies": {
+    "eslint": "^8.17.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "jest": "^28.1.1"
+  }
+}
