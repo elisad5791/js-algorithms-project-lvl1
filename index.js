@@ -4,11 +4,24 @@ const getWords = (txt) => txt.split(' ').map((item) => getTerm(item));
 const getCount = (word, arr) => arr.reduce((acc, wordArr) => word === wordArr ? acc + 1 : acc, 0);
 const getNotZero = (arr) => arr.reduce((acc, item) => item > 0 ? acc + 1 : acc, 0);
 
+const getIndex = (docs) => docs
+  .reduce((acc, doc) => {
+    const { id, text } = doc;
+    const words = getWords(text);
+    return words.reduce((acc2, word) => {
+      if (!acc2[word]) {
+        return { ... acc2, [word]: { [id]: 1 } };
+      }
+      const current = acc2[word][id] ?? 0;
+      const count = current + 1;
+      return { ...acc2, [word]: { ...acc2[word], [id]: count } };
+    }, acc);
+  }, {});
+
 const buildSearchEngine = (docs) => ({
-  docs,
   search(str) {
     const strWords = getWords(str);
-    const counters = this.docs.map((doc) => {
+    const counters = docs.map((doc) => {
       const { id, text } = doc;
       const docWords = getWords(text);
       const counts = strWords
@@ -29,6 +42,7 @@ const buildSearchEngine = (docs) => ({
       }
     });
     const result = filteredCounters.map((doc) => doc.id);
+    console.log(getIndex(docs));
     return result;
   },
 });
