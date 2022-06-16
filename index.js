@@ -1,8 +1,7 @@
-const sum = (arr) => arr.reduce((acc, item) => acc + item, 0);
+import _ from 'lodash';
+
 const getTerm = (word) => word.match(/\w+/g)[0];
 const getWords = (txt) => txt.split(' ').map((item) => getTerm(item));
-const getCount = (word, arr) => arr.reduce((acc, wordArr) => word === wordArr ? acc + 1 : acc, 0);
-const getNotZero = (arr) => arr.reduce((acc, item) => item > 0 ? acc + 1 : acc, 0);
 
 const getIndex = (docs) => docs
   .reduce((acc, doc) => {
@@ -21,28 +20,25 @@ const getIndex = (docs) => docs
 const buildSearchEngine = (docs) => ({
   search(str) {
     const strWords = getWords(str);
-    const counters = docs.map((doc) => {
-      const { id, text } = doc;
-      const docWords = getWords(text);
-      const counts = strWords
-        .reduce((acc1, strWord) => {
-          const count = getCount(strWord, docWords);
-          acc1.push(count);
-          return acc1;
-        }, []);
-      return { id, counts };
-    });
-    const filteredCounters = counters.filter((counter) => sum(counter.counts) > 0);
-    filteredCounters.sort((a, b) => {
-      const diff = getNotZero(b.counts) - getNotZero(a.counts);
-      if (diff !== 0) {
-        return diff;
-      } else {
-        return sum(b.counts) - sum(a.counts);
+    const index = getIndex(docs);
+    const currentIndex = _.pick(index, strWords);
+    const currentArray = _.values(currentIndex);
+    const docCounter = currentArray.reduce((acc, value) => { 
+        const docCounts = _.entries(value);
+        return docCounts.reduce((acc1, [id, count]) => {
+          const prev = acc1[id] ?? { words: 0, counts: 0 };
+          const current = { words: prev.words + 1, counts: prev.counts + count };
+          return { ...acc1, [id]: current };
+        }, acc)
+    }, {});
+    const docCounterArr = _.entries(docCounter);
+    docCounterArr.sort((a, b) => {
+      if (b[1].words !== a[1].words) {
+        return b[1].words - a[1].words;
       }
+      return b[1].counts - a[1].counts;
     });
-    const result = filteredCounters.map((doc) => doc.id);
-    console.log(getIndex(docs));
+    const result = docCounterArr.map(([key]) => key);
     return result;
   },
 });
