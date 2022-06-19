@@ -1,46 +1,104 @@
 import _ from 'lodash';
 
-const getTerm = (word) => word.match(/\w+/g)[0];
-const getWords = (txt) => txt.split(' ').map((item) => getTerm(item));
+const getTerm = (word) => word.match(/\w+/g)[0].toLowerCase();
+const getTokens = (txt) => txt.split(' ').map((item) => getTerm(item));
+const getTokensForDocs = (docs) => docs.map(({ id, text }) => ({ id, tokens: getTokens(text) }));
+const counter = (arr, term) => arr.reduce((acc, item) => (item === term ? acc + 1 : acc), 0);
 
-const getIndex = (docs) => docs
-  .reduce((acc, doc) => {
-    const { id, text } = doc;
-    const words = getWords(text);
-    return words.reduce((acc2, word) => {
-      if (!acc2[word]) {
-        return { ... acc2, [word]: { [id]: 1 } };
+const getAllTokensArray = (tokensForDocs) => {
+  const allTokens = tokensForDocs.reduce((acc, { tokens }) => acc.concat(tokens), []);
+  const uniqueTokens = _.uniq(allTokens);
+  return uniqueTokens;
+};
+
+const getDocsForTokens = (allTokensArray, tokensForDocs) => {
+  const index = allTokensArray.reduce((acc, token) => {
+    const docsList = tokensForDocs.reduce((accInner, { id, tokens }) => {
+      if (tokens.includes(token)) {
+        return [...accInner, id];
       }
-      const current = acc2[word][id] ?? 0;
-      const count = current + 1;
-      return { ...acc2, [word]: { ...acc2[word], [id]: count } };
-    }, acc);
+      return accInner;
+    }, []);
+    return { ...acc, [token]: docsList };
   }, {});
+  return index;
+};
 
-const buildSearchEngine = (docs) => ({
-  search(str) {
-    const strWords = getWords(str);
-    const index = getIndex(docs);
-    const currentIndex = _.pick(index, strWords);
-    const currentArray = _.values(currentIndex);
-    const docCounter = currentArray.reduce((acc, value) => { 
-        const docCounts = _.entries(value);
-        return docCounts.reduce((acc1, [id, count]) => {
-          const prev = acc1[id] ?? { words: 0, counts: 0 };
-          const current = { words: prev.words + 1, counts: prev.counts + count };
-          return { ...acc1, [id]: current };
-        }, acc)
+const getIdf = (index1, docsCount) => {
+  const entries = Object.entries(index1);
+  const idf = entries.reduce((acc, [key, value]) => {
+    const coef = _.round(Math.log(docsCount / value.length), 3);
+    return { ...acc, [key]: coef };
+  }, {});
+  return idf;
+};
+
+const getTf = (indexDocs, tokensForDocs) => {
+  const entries = Object.entries(indexDocs);
+  const index = entries.reduce((acc1, [token, value]) => {
+    const tf = value.reduce((acc2, docId) => {
+      const { tokens } = tokensForDocs.find((item) => item.id === docId);
+      const count = counter(tokens, token);
+      const coef = _.round(count / tokens.length, 3);
+      return { ...acc2, [docId]: coef };
     }, {});
-    const docCounterArr = _.entries(docCounter);
-    docCounterArr.sort((a, b) => {
-      if (b[1].words !== a[1].words) {
-        return b[1].words - a[1].words;
-      }
-      return b[1].counts - a[1].counts;
-    });
-    const result = docCounterArr.map(([key]) => key);
-    return result;
-  },
-});
+    return { ...acc1, [token]: tf };
+  }, {});
+  return index;
+};
+
+const getIndex = (tf, idf) => {
+  const entries = Object.entries(tf);
+  const index = entries.reduce((acc1, [token, tfObj]) => {
+    const tfEntries = Object.entries(tfObj);
+    const tfIdf = tfEntries.reduce((acc2, [docId, tfValue]) => {
+      const tfIdfValue = _.round(tfValue * idf[token], 3);
+      return { ...acc2, [docId]: tfIdfValue };
+    }, {});
+    return { ...acc1, [token]: tfIdf };
+  }, {});
+  return index;
+};
+
+const getDocsRels = (indexForStr) => {
+  const values = Object.values(indexForStr);
+  const docsRels = values.reduce((acc, obj) => {
+    const entries = Object.entries(obj);
+    const newAcc = entries.reduce((acc2, [docId, coef]) => {
+      const prev = acc2[docId] ?? 0;
+      const current = _.round(prev + coef, 3);
+      return { ...acc2, [docId]: current };
+    }, acc);
+    return newAcc;
+  }, {});
+  return docsRels;
+};
+
+const getSortedList = (docsRels) => {
+  const entries = Object.entries(docsRels);
+  const sortedEntries = entries.sort((a, b) => b[1] - a[1]);
+  const sortedList = sortedEntries.map(([docId]) => docId);
+  return sortedList;
+};
+
+const buildSearchEngine = (docs) => {
+  const tokensForDocs = getTokensForDocs(docs);
+  const allTokensArray = getAllTokensArray(tokensForDocs);
+  const indexDocs = getDocsForTokens(allTokensArray, tokensForDocs);
+  const docsCount = docs.length;
+  const idf = getIdf(indexDocs, docsCount);
+  const tf = getTf(indexDocs, tokensForDocs);
+  const index = getIndex(tf, idf);
+  return {
+    index,
+    search(str) {
+      const tokensForStr = getTokens(str);
+      const indexForStr = _.pick(this.index, tokensForStr);
+      const docsRels = getDocsRels(indexForStr);
+      const result = getSortedList(docsRels);
+      return result;
+    },
+  };
+};
 
 export default buildSearchEngine;
