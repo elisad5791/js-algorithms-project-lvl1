@@ -1,7 +1,13 @@
 import _ from 'lodash';
 
-const getTerm = (word) => word.match(/\w+/g)[0].toLowerCase();
-const getTokens = (txt) => txt.split(' ').map((item) => getTerm(item));
+const getTerm = (word) => {
+  const matches = word.match(/\w+/g);
+  if (matches) {
+    return matches[0].toLowerCase();
+  }
+  return '';
+};
+const getTokens = (txt) => txt.split(' ').map((item) => getTerm(item)).filter((item) => item);
 const getTokensForDocs = (docs) => docs.map(({ id, text }) => ({ id, tokens: getTokens(text) }));
 const counter = (arr, term) => arr.reduce((acc, item) => (item === term ? acc + 1 : acc), 0);
 
