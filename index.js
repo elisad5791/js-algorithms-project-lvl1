@@ -33,7 +33,7 @@ const getDocsForTokens = (allTokensArray, tokensForDocs) => {
 const getIdf = (index1, docsCount) => {
   const entries = Object.entries(index1);
   const idf = entries.reduce((acc, [key, value]) => {
-    const coef = _.round(Math.log(docsCount / value.length), 3);
+    const coef = _.round(Math.log(1 + docsCount / value.length), 3);
     return { ...acc, [key]: coef };
   }, {});
   return idf;
